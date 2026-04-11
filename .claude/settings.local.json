@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/Usuario/AndroidStudioProjects/Colors -type f -name *.kt -o -name *.xml -o -name *.gradle)"
+    ]
+  }
+}
