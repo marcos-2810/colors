@@ -29,16 +29,19 @@ import com.colors.game.data.model.GameColor
 @Composable
 fun ColorPicker(
     palette: List<GameColor>,
-    activeColor: GameColor?,        // currently selected group's color
+    activeColor: GameColor?,
     daltonicMode: Boolean,
     onColorSelected: (GameColor) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Cada botón ocupa 1 fracción igual del ancho disponible (weight),
+    // con padding interno para que no se toquen entre sí.
+    // Así los 8 colores siempre caben sin importar el tamaño de pantalla.
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         palette.forEach { color ->
@@ -47,7 +50,8 @@ fun ColorPicker(
                 color        = color,
                 isActive     = isActive,
                 daltonicMode = daltonicMode,
-                onClick      = { if (!isActive) onColorSelected(color) }
+                onClick      = { if (!isActive) onColorSelected(color) },
+                modifier     = Modifier.weight(1f)
             )
         }
     }
@@ -58,12 +62,13 @@ private fun ColorButton(
     color: GameColor,
     isActive: Boolean,
     daltonicMode: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val composeColor = color.toComposeColor(daltonicMode)
 
     val scale by animateFloatAsState(
-        targetValue = if (isActive) 0.80f else 1.0f,
+        targetValue = if (isActive) 0.78f else 1.0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness    = Spring.StiffnessMedium
@@ -76,9 +81,11 @@ private fun ColorButton(
         label = "colorBtnBorder"
     )
 
+    // aspectRatio(1f) garantiza que el botón sea siempre un círculo perfecto
+    // independientemente del ancho asignado por weight().
     Box(
-        modifier = Modifier
-            .size(48.dp)
+        modifier = modifier
+            .aspectRatio(1f)
             .scale(scale)
             .clip(CircleShape)
             .background(composeColor)

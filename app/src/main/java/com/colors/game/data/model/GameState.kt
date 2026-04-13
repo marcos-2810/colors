@@ -29,8 +29,8 @@ data class GameState(
 ) {
     fun cellAt(row: Int, col: Int): GameColor = currentCells[row * cols + col]
 
-    val timeRemainingSeconds: Int get() = (timeLimitSeconds - timeElapsedSeconds).coerceAtLeast(0)
-
+    // El timer es un cronómetro ascendente: muestra cuánto llevas jugando.
+    // No existe derrota por tiempo; isFailed solo ocurre al agotar movimientos.
     val isOver: Boolean get() = isCompleted || isFailed
 
     /**

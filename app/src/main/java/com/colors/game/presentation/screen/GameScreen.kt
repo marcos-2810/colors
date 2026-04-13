@@ -5,10 +5,12 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,12 +25,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.getSystemService
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import com.colors.game.data.model.GameColor
 import com.colors.game.data.model.Position
 import com.colors.game.domain.LevelGenerator
 import com.colors.game.presentation.component.*
 import com.colors.game.presentation.viewmodel.GameViewModel
+import com.colors.game.presentation.viewmodel.LeaderboardViewModel
+import com.colors.game.ui.LocalStrings
+import com.colors.game.ui.difficultyName
 import com.colors.game.ui.theme.*
 
 @Composable
@@ -36,12 +41,13 @@ fun GameScreen(
     onNavigateBack: () -> Unit,
     onNavigateMenu: () -> Unit,
     onNavigateNext: (Int) -> Unit,
-    viewModel: GameViewModel = hiltViewModel()
+    viewModel: GameViewModel = hiltViewModel(),
+    leaderboardVm: LeaderboardViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val strings = LocalStrings.current
 
-    // Haptic feedback on color apply
     fun vibrate() {
         if (uiState.settings.vibrationEnabled) {
             context.getSystemService<Vibrator>()?.let { vib ->
@@ -52,7 +58,6 @@ fun GameScreen(
         }
     }
 
-    // Lifecycle: pause when leaving screen, resume when returning
     DisposableEffect(Unit) {
         onDispose { viewModel.onBackground() }
     }
@@ -66,95 +71,117 @@ fun GameScreen(
             .systemBarsPadding()
     ) {
         if (uiState.isLoading || gameState == null) {
+
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            return@Box
-        }
 
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // ── HUD: level info, timer, moves ──────────────────────────
-            GameHUD(
-                levelId         = gameState.levelId,
-                difficulty      = gameState.difficulty.displayName,
-                movesRemaining  = gameState.movesRemaining,
-                maxMoves        = gameState.maxMoves,
-                timeRemaining   = gameState.timeRemainingSeconds,
-                onPause         = { viewModel.togglePause() }
-            )
+        } else {
 
-            Spacer(Modifier.height(12.dp))
-
-            // ── Grid ───────────────────────────────────────────────────
-            BoxWithConstraints(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
+            Column(
+                modifier            = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                val gridSize = minOf(maxWidth, maxHeight) - 8.dp
+                GameHUD(
+                    levelId        = gameState.levelId,
+                    difficulty     = strings.difficultyName(gameState.difficulty),
+                    movesRemaining = gameState.movesRemaining,
+                    maxMoves       = gameState.maxMoves,
+                    timeElapsed    = gameState.timeElapsedSeconds,
+                    movesLabel     = strings.moves,
+                    timeLabel      = strings.time,
+                    pauseLabel     = strings.pause,
+                    levelLabel     = strings.levelN(gameState.levelId),
+                    onPause        = { viewModel.togglePause() }
+                )
 
-                GameGrid(
-                    rows          = gameState.rows,
-                    cols          = gameState.cols,
-                    cells         = gameState.currentCells,
-                    selectedGroup = gameState.selectedGroup.toSet(),
-                    animatingCells = uiState.animatingCells,
-                    daltonicMode  = uiState.settings.daltonicMode,
-                    onCellTap     = { row, col -> viewModel.selectCell(row, col) },
-                    modifier      = Modifier.size(gridSize)
+                Spacer(Modifier.height(12.dp))
+
+                BoxWithConstraints(
+                    modifier         = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val gridSize = minOf(maxWidth, maxHeight) - 8.dp
+                    GameGrid(
+                        rows           = gameState.rows,
+                        cols           = gameState.cols,
+                        cells          = gameState.currentCells,
+                        selectedGroup  = gameState.selectedGroup.toSet(),
+                        animatingCells = uiState.animatingCells,
+                        daltonicMode   = uiState.settings.daltonicMode,
+                        modifier       = Modifier.size(gridSize)
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                val activeColor = gameState.selectedGroup.firstOrNull()?.let { pos ->
+                    gameState.currentCells[pos.row * gameState.cols + pos.col]
+                }
+                ColorPicker(
+                    palette         = gameState.colorPalette,
+                    activeColor     = activeColor,
+                    daltonicMode    = uiState.settings.daltonicMode,
+                    onColorSelected = { color -> vibrate(); viewModel.applyColor(color) },
+                    modifier        = Modifier.padding(bottom = 8.dp)
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-
-            // ── Color picker ───────────────────────────────────────────
-            val activeColor = gameState.selectedGroup.firstOrNull()?.let { pos ->
-                gameState.currentCells[pos.row * gameState.cols + pos.col]
+            // Pause overlay
+            AnimatedVisibility(
+                visible = uiState.showPauseMenu,
+                enter   = fadeIn() + scaleIn(initialScale = 0.9f),
+                exit    = fadeOut() + scaleOut(targetScale = 0.9f)
+            ) {
+                PauseMenuOverlay(
+                    title     = strings.pausedTitle,
+                    resumeBtn = strings.resume,
+                    restartBtn = strings.restart,
+                    menuBtn   = strings.mainMenu,
+                    onResume  = { viewModel.togglePause() },
+                    onRestart = { viewModel.restartLevel() },
+                    onMenu    = onNavigateMenu
+                )
             }
-            ColorPicker(
-                palette         = gameState.colorPalette,
-                activeColor     = activeColor,
-                daltonicMode    = uiState.settings.daltonicMode,
-                onColorSelected = { color ->
-                    vibrate()
-                    viewModel.applyColor(color)
-                },
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
 
-        // ── Pause overlay ──────────────────────────────────────────────
-        AnimatedVisibility(
-            visible = uiState.showPauseMenu,
-            enter   = fadeIn() + scaleIn(initialScale = 0.9f),
-            exit    = fadeOut() + scaleOut(targetScale = 0.9f)
-        ) {
-            PauseMenuOverlay(
-                onResume  = { viewModel.togglePause() },
-                onRestart = { viewModel.restartLevel() },
-                onMenu    = onNavigateMenu
-            )
-        }
+            // Result dialog
+            AnimatedVisibility(
+                visible = uiState.showResultDialog,
+                enter   = fadeIn() + scaleIn(initialScale = 0.85f),
+                exit    = fadeOut()
+            ) {
+                ResultDialog(
+                    isWin           = gameState.isCompleted,
+                    stars           = gameState.computeStars(),
+                    levelId         = gameState.levelId,
+                    completedStr    = strings.completed,
+                    gameOverStr     = strings.gameOver,
+                    noMovesStr      = strings.noMovesLeft,
+                    nextLevelStr    = strings.nextLevelBtn,
+                    tryAgainStr     = strings.tryAgain,
+                    mainMenuStr     = strings.mainMenu,
+                    viewRankingsStr = strings.viewRankings,
+                    onRestart    = { viewModel.restartLevel() },
+                    onMenu       = onNavigateMenu,
+                    onNext       = {
+                        val nextId = (gameState.levelId + 1).coerceAtMost(LevelGenerator.TOTAL_LEVELS)
+                        if (nextId > gameState.levelId) onNavigateNext(nextId) else onNavigateMenu()
+                    },
+                    onViewRankings = {
+                        // Force-refresh so the score we just submitted appears
+                        leaderboardVm.loadForLevel(gameState.levelId)
+                        leaderboardVm.refresh()
+                        viewModel.showLeaderboard()
+                    }
+                )
+            }
 
-        // ── Result dialog ──────────────────────────────────────────────
-        AnimatedVisibility(
-            visible = uiState.showResultDialog,
-            enter   = fadeIn() + scaleIn(initialScale = 0.85f),
-            exit    = fadeOut()
-        ) {
-            ResultDialog(
-                isWin     = gameState.isCompleted,
-                stars     = gameState.computeStars(),
-                levelId   = gameState.levelId,
-                onRestart = { viewModel.restartLevel() },
-                onMenu    = onNavigateMenu,
-                onNext    = {
-                    val nextId = (gameState.levelId + 1).coerceAtMost(LevelGenerator.TOTAL_LEVELS)
-                    if (nextId > gameState.levelId) onNavigateNext(nextId) else onNavigateMenu()
-                }
-            )
+            // Leaderboard sheet (shown after level completion)
+            if (uiState.showLeaderboard) {
+                LeaderboardSheet(
+                    levelId   = gameState.levelId,
+                    viewModel = leaderboardVm,
+                    onDismiss = { viewModel.dismissLeaderboard() }
+                )
+            }
         }
     }
 }
@@ -167,67 +194,55 @@ private fun GameHUD(
     difficulty: String,
     movesRemaining: Int,
     maxMoves: Int,
-    timeRemaining: Int,
+    timeElapsed: Int,
+    movesLabel: String,
+    timeLabel: String,
+    pauseLabel: String,
+    levelLabel: String,
     onPause: () -> Unit
 ) {
-    val minutes = timeRemaining / 60
-    val seconds = timeRemaining % 60
-    val timeStr = "%02d:%02d".format(minutes, seconds)
+    val minutes  = timeElapsed / 60
+    val seconds  = timeElapsed % 60
+    val timeStr  = "%02d:%02d".format(minutes, seconds)
 
     val movesColor = when {
-        movesRemaining <= 3 -> ErrorRed
+        movesRemaining <= 3            -> ErrorRed
         movesRemaining <= maxMoves / 3 -> StarColor
-        else -> Color.White
-    }
-
-    val timeColor = when {
-        timeRemaining <= 30 -> ErrorRed
-        timeRemaining <= 60 -> StarColor
-        else -> Color.White
+        else                           -> Color.White
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier              = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment     = Alignment.CenterVertically
     ) {
-        // Level + difficulty
         Column {
-            Text(
-                text  = "Nivel $levelId",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.White
-            )
-            Text(
-                text  = difficulty,
-                style = MaterialTheme.typography.bodyMedium,
-                color = OnSurfaceDim
-            )
+            Text(text = levelLabel,   style = MaterialTheme.typography.titleLarge,  color = Color.White)
+            Text(text = difficulty,   style = MaterialTheme.typography.bodyMedium,  color = OnSurfaceDim)
         }
 
-        // Moves
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text  = movesRemaining.toString(),
                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
                 color = movesColor
             )
-            Text(text = "movimientos", style = MaterialTheme.typography.labelLarge, color = OnSurfaceDim)
+            Text(text = movesLabel, style = MaterialTheme.typography.labelLarge, color = OnSurfaceDim)
         }
 
-        // Timer
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text  = timeStr,
-                style = MaterialTheme.typography.titleLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
-                color = timeColor
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                ),
+                color = Color.White
             )
-            Text(text = "tiempo", style = MaterialTheme.typography.labelLarge, color = OnSurfaceDim)
+            Text(text = timeLabel, style = MaterialTheme.typography.labelLarge, color = OnSurfaceDim)
         }
 
-        // Pause button
         IconButton(onClick = onPause) {
-            Icon(Icons.Filled.Pause, contentDescription = "Pausa", tint = Color.White)
+            Icon(Icons.Filled.Pause, contentDescription = pauseLabel, tint = Color.White)
         }
     }
 }
@@ -236,29 +251,30 @@ private fun GameHUD(
 
 @Composable
 private fun PauseMenuOverlay(
+    title: String,
+    resumeBtn: String,
+    restartBtn: String,
+    menuBtn: String,
     onResume: () -> Unit,
     onRestart: () -> Unit,
     onMenu: () -> Unit
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.75f)),
+        modifier         = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f)),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier
+            modifier            = Modifier
                 .clip(RoundedCornerShape(24.dp))
                 .background(SurfaceCard)
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Pausa", style = MaterialTheme.typography.headlineLarge, color = Color.White)
-
-            PauseButton("Reanudar", Primary, onResume)
-            PauseButton("Reiniciar", Color(0xFF795548), onRestart)
-            PauseButton("Menú principal", Color(0xFF37474F), onMenu)
+            Text(title, style = MaterialTheme.typography.headlineLarge, color = Color.White)
+            PauseButton(resumeBtn,  Primary,             onResume)
+            PauseButton(restartBtn, Color(0xFF795548),   onRestart)
+            PauseButton(menuBtn,    Color(0xFF37474F),   onMenu)
         }
     }
 }
@@ -282,18 +298,24 @@ private fun ResultDialog(
     isWin: Boolean,
     stars: Int,
     levelId: Int,
+    completedStr: String,
+    gameOverStr: String,
+    noMovesStr: String,
+    nextLevelStr: String,
+    tryAgainStr: String,
+    mainMenuStr: String,
+    viewRankingsStr: String,
     onRestart: () -> Unit,
     onMenu: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onViewRankings: () -> Unit
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.75f)),
+        modifier         = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f)),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier
+            modifier            = Modifier
                 .fillMaxWidth(0.85f)
                 .clip(RoundedCornerShape(28.dp))
                 .background(SurfaceCard)
@@ -302,7 +324,7 @@ private fun ResultDialog(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Text(
-                text      = if (isWin) "¡Completado!" else "¡Fin del juego!",
+                text      = if (isWin) completedStr else gameOverStr,
                 style     = MaterialTheme.typography.headlineLarge,
                 color     = if (isWin) SuccessGreen else ErrorRed,
                 textAlign = TextAlign.Center
@@ -312,7 +334,7 @@ private fun ResultDialog(
                 StarsDisplay(stars = stars, animated = true)
             } else {
                 Text(
-                    text  = if (stars == 0) "Sin movimientos" else "¡Tiempo agotado!",
+                    text  = noMovesStr,
                     style = MaterialTheme.typography.bodyLarge,
                     color = OnSurfaceDim
                 )
@@ -327,7 +349,7 @@ private fun ResultDialog(
                     colors   = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
                     shape    = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Siguiente nivel", style = MaterialTheme.typography.titleMedium)
+                    Text(nextLevelStr, style = MaterialTheme.typography.titleMedium)
                 }
             }
 
@@ -336,11 +358,30 @@ private fun ResultDialog(
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape    = RoundedCornerShape(12.dp)
             ) {
-                Text("Intentar de nuevo", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text(tryAgainStr, style = MaterialTheme.typography.titleMedium, color = Color.White)
+            }
+
+            if (isWin) {
+                OutlinedButton(
+                    onClick  = onViewRankings,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = Primary),
+                    border   = BorderStroke(1.dp, Primary.copy(alpha = 0.6f))
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.EmojiEvents,
+                        contentDescription = null,
+                        modifier           = Modifier.size(18.dp),
+                        tint               = Primary
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(viewRankingsStr, style = MaterialTheme.typography.titleMedium, color = Primary)
+                }
             }
 
             TextButton(onClick = onMenu) {
-                Text("Menú principal", color = OnSurfaceDim)
+                Text(mainMenuStr, color = OnSurfaceDim)
             }
         }
     }

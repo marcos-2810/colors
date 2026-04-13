@@ -4,15 +4,18 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colors.game.data.model.*
+import com.colors.game.data.remote.LeaderboardRepository
 import com.colors.game.data.repository.GameStateRepository
 import com.colors.game.data.repository.LevelRepository
 import com.colors.game.data.repository.SettingsRepository
 import com.colors.game.domain.FloodFillEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -24,6 +27,7 @@ data class GameUiState(
     val animatingCells: Map<Position, Int> = emptyMap(), // position → wave distance
     val showPauseMenu: Boolean = false,
     val showResultDialog: Boolean = false,
+    val showLeaderboard: Boolean = false,
     val isLoading: Boolean = true
 )
 
@@ -32,7 +36,8 @@ class GameViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val levelRepo: LevelRepository,
     private val gameStateRepo: GameStateRepository,
-    private val settingsRepo: SettingsRepository
+    private val settingsRepo: SettingsRepository,
+    private val leaderboardRepo: LeaderboardRepository
 ) : ViewModel() {
 
     private val levelId: Int = checkNotNull(savedStateHandle["levelId"])
@@ -51,18 +56,27 @@ class GameViewModel @Inject constructor(
 
     private fun loadGame() {
         viewModelScope.launch {
-            // First, check if there's a saved game for this level
+            // Check if there's a saved game for this level
             val saved = gameStateRepo.activeGameFlow.firstOrNull()
             val gameState = if (saved != null && saved.levelId == levelId) {
-                saved
+                // Always unpause on load — the game was saved while paused when
+                // the user navigated away, so isPaused=true would block applyColor().
+                saved.copy(isPaused = false)
             } else {
-                buildFreshGameState(levelId)
+                // Run off the main thread — on repeat launches this is an O(1)
+                // cache lookup; on first-ever launch it generates just this one level.
+                withContext(Dispatchers.Default) { buildFreshGameState(levelId) }
             }
-            _uiState.update { it.copy(gameState = gameState, isLoading = false) }
+            // Select the initial group at (0,0)
+            val initialGroup = if (!gameState.isOver) {
+                selectTopLeft(gameState.currentCells, gameState.rows, gameState.cols).toList()
+            } else emptyList()
 
-            // Auto-select the group at (0,0) to hint the player
-            if (!gameState.isOver) {
-                selectCell(0, 0)
+            _uiState.update {
+                it.copy(
+                    gameState = gameState.copy(selectedGroup = initialGroup),
+                    isLoading = false
+                )
             }
         }
     }
@@ -102,20 +116,11 @@ class GameViewModel @Inject constructor(
                 val state = _uiState.value.gameState ?: break
                 if (state.isPaused || state.isOver) break
 
-                val newElapsed = state.timeElapsedSeconds + 1
-                val timedOut = newElapsed >= state.timeLimitSeconds
-
-                val newState = state.copy(
-                    timeElapsedSeconds = newElapsed,
-                    isFailed = state.isFailed || timedOut
-                )
+                // Cronómetro ascendente: solo cuenta el tiempo transcurrido.
+                // No hay derrota por tiempo; el nivel solo falla al agotar movimientos.
+                val newState = state.copy(timeElapsedSeconds = state.timeElapsedSeconds + 1)
                 _uiState.update { it.copy(gameState = newState) }
                 autoSave(newState)
-
-                if (timedOut) {
-                    _uiState.update { it.copy(showResultDialog = true) }
-                    break
-                }
             }
         }
     }
@@ -128,50 +133,42 @@ class GameViewModel @Inject constructor(
     // ── User interactions ─────────────────────────────────────────────────
 
     /**
-     * Called when the player taps a cell.
-     * Performs flood-fill from that position to highlight the connected group.
+     * Selecciona el grupo conectado a (0,0). Solo uso interno.
+     * La celda de inicio es siempre la esquina superior izquierda.
      */
-    fun selectCell(row: Int, col: Int) {
-        val state = _uiState.value.gameState ?: return
-        if (state.isOver || state.isPaused) return
-
-        val group = FloodFillEngine.getConnectedGroup(
-            state.currentCells, state.rows, state.cols, row, col
-        )
-
-        val newState = state.copy(selectedGroup = group.toList())
-        _uiState.update { it.copy(gameState = newState) }
-
-        // Start timer on first interaction
-        if (timerJob == null || timerJob?.isActive == false) {
-            startTimer()
-        }
-    }
+    private fun selectTopLeft(cells: List<GameColor>, rows: Int, cols: Int): Set<Position> =
+        FloodFillEngine.getConnectedGroup(cells, rows, cols, 0, 0)
 
     /**
      * Called when the player picks a color from the color picker.
-     * Only acts if a group is currently selected and the color is different.
+     * El grupo activo es siempre el conectado a (0,0).
      */
     fun applyColor(newColor: GameColor) {
         val state = _uiState.value.gameState ?: return
         if (state.isOver || state.isPaused) return
-        if (state.selectedGroup.isEmpty()) return
 
-        val currentGroupColor = state.currentCells[
-            state.selectedGroup.first().row * state.cols + state.selectedGroup.first().col
-        ]
-        if (currentGroupColor == newColor) return // no-op: same color
+        // El grupo activo parte siempre de (0,0)
+        val groupSet = selectTopLeft(state.currentCells, state.rows, state.cols)
 
-        val groupSet = state.selectedGroup.toSet()
+        val currentGroupColor = state.currentCells[0] // color en (0,0)
+        if (currentGroupColor == newColor) return      // mismo color, no-op
+
+        // Arrancar el cronómetro con el primer movimiento
+        if (timerJob == null || timerJob?.isActive == false) {
+            startTimer()
+        }
 
         // Compute animation distances for ripple effect
         val distMap = FloodFillEngine.bfsDistanceMap(state.rows, state.cols, groupSet)
         _uiState.update { it.copy(animatingCells = distMap) }
 
         // Apply color change and expansion
-        val (newCells, expandedGroup) = FloodFillEngine.applyColorChange(
+        val (newCells, _) = FloodFillEngine.applyColorChange(
             state.currentCells, state.rows, state.cols, groupSet, newColor
         )
+
+        // El nuevo grupo activo es siempre el conectado a (0,0) tras el cambio
+        val newActiveGroup = selectTopLeft(newCells, state.rows, state.cols)
 
         val newMovesRemaining = state.movesRemaining - 1
         val isCompleted = FloodFillEngine.isGridComplete(newCells)
@@ -180,7 +177,7 @@ class GameViewModel @Inject constructor(
         val newState = state.copy(
             currentCells = newCells,
             movesRemaining = newMovesRemaining,
-            selectedGroup = expandedGroup.toList(),
+            selectedGroup = newActiveGroup.toList(),
             isCompleted = isCompleted,
             isFailed = isFailed
         )
@@ -195,10 +192,9 @@ class GameViewModel @Inject constructor(
                 gameStateRepo.clearActiveGame()
             }
         } else {
-            autoSave(newState)
-            // Clear animation map after the wave finishes
             viewModelScope.launch {
-                delay(500)
+                autoSave(newState)
+                delay(500) // esperar a que termine la animación de ola
                 _uiState.update { it.copy(animatingCells = emptyMap()) }
             }
         }
@@ -219,10 +215,14 @@ class GameViewModel @Inject constructor(
         viewModelScope.launch {
             gameStateRepo.clearActiveGame()
             val fresh = buildFreshGameState(levelId)
+            val initialGroup = selectTopLeft(fresh.currentCells, fresh.rows, fresh.cols).toList()
             _uiState.update {
-                it.copy(gameState = fresh, showPauseMenu = false, showResultDialog = false)
+                it.copy(
+                    gameState = fresh.copy(selectedGroup = initialGroup),
+                    showPauseMenu = false,
+                    showResultDialog = false
+                )
             }
-            selectCell(0, 0)
         }
     }
 
@@ -253,17 +253,25 @@ class GameViewModel @Inject constructor(
         if (!state.isOver) gameStateRepo.saveActiveGame(state)
     }
 
+    fun showLeaderboard()    = _uiState.update { it.copy(showLeaderboard = true) }
+    fun dismissLeaderboard() = _uiState.update { it.copy(showLeaderboard = false) }
+
     private suspend fun recordResult(state: GameState) {
-        val stars = state.computeStars()
+        val stars     = state.computeStars()
         val movesUsed = state.maxMoves - state.movesRemaining
         gameStateRepo.recordProgress(
             LevelProgress(
-                levelId = state.levelId,
-                isCompleted = state.isCompleted,
-                stars = stars,
-                bestMoves = if (state.isCompleted) movesUsed else null,
+                levelId         = state.levelId,
+                isCompleted     = state.isCompleted,
+                stars           = stars,
+                bestMoves       = if (state.isCompleted) movesUsed else null,
                 bestTimeSeconds = if (state.isCompleted) state.timeElapsedSeconds else null
             )
         )
+        // Submit scores to the leaderboard (only when the level was completed)
+        if (state.isCompleted) {
+            leaderboardRepo.submitScore(state.levelId, LeaderboardType.MOVES, movesUsed)
+            leaderboardRepo.submitScore(state.levelId, LeaderboardType.TIME,  state.timeElapsedSeconds)
+        }
     }
 }

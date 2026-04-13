@@ -7,10 +7,11 @@ import com.colors.game.data.model.Level
 import com.colors.game.data.model.LevelProgress
 import com.colors.game.data.repository.GameStateRepository
 import com.colors.game.data.repository.LevelRepository
-import com.colors.game.domain.LevelGenerator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class LevelItem(
@@ -32,21 +33,23 @@ class LevelSelectorViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _difficulty = MutableStateFlow(Difficulty.EASY)
-    private val _uiState = MutableStateFlow(LevelSelectorUiState())
+    private val _uiState    = MutableStateFlow(LevelSelectorUiState())
     val uiState: StateFlow<LevelSelectorUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
+            // Wait until the pre-generated level cache is fully loaded.
+            // On subsequent launches this resolves in <100ms (file read).
+            // On first launch it waits for the one-time background generation.
+            levelRepo.isReady.filter { it }.first()
+
             combine(_difficulty, gameStateRepo.progressMapFlow) { diff, progressMap ->
-                buildItems(diff, progressMap)
-            }.collect { items ->
-                _uiState.update {
-                    it.copy(
-                        items = items,
-                        selectedDifficulty = _difficulty.value,
-                        isLoading = false
-                    )
-                }
+                diff to progressMap
+            }.collectLatest { (diff, progressMap) ->
+                _uiState.update { it.copy(isLoading = true, selectedDifficulty = diff) }
+                // buildItems is now just HashMap lookups — fast, but keep off main thread
+                val items = withContext(Dispatchers.Default) { buildItems(diff, progressMap) }
+                _uiState.update { it.copy(items = items, isLoading = false) }
             }
         }
     }
@@ -64,18 +67,14 @@ class LevelSelectorViewModel @Inject constructor(
             Difficulty.MEDIUM -> 101..200
             Difficulty.HARD   -> 201..500
         }
-
         return range.map { id ->
-            val level = levelRepo.getLevel(id)
+            val level    = levelRepo.getLevel(id)
             val progress = progressMap[id]
-
-            // A level is unlocked if it's the first, or the previous one is completed
             val isUnlocked = id == range.first ||
                 progressMap[id - 1]?.isCompleted == true ||
-                (difficulty == Difficulty.EASY && id == 1) ||
+                (difficulty == Difficulty.EASY   && id == 1) ||
                 (difficulty == Difficulty.MEDIUM && id == 101 && progressMap[100]?.isCompleted == true) ||
-                (difficulty == Difficulty.HARD && id == 201 && progressMap[200]?.isCompleted == true)
-
+                (difficulty == Difficulty.HARD   && id == 201 && progressMap[200]?.isCompleted == true)
             LevelItem(level, progress, isUnlocked)
         }
     }

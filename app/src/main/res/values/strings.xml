@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Colors</string>
+    <string name="app_name">Color Puzzles</string>
+
+    <!--
+        Google Play Games Services App ID.
+        Replace "000000000000" with the numeric App ID from your Play Console
+        (Play Games Services → Setup → App ID).
+        The value must be a plain number string, not a reference.
+    -->
+    <string name="game_services_project_id" translatable="false">000000000000</string>
 
     <!-- Menu -->
     <string name="btn_continue">Continuar</string>

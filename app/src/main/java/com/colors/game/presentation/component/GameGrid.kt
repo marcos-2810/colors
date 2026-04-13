@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -19,15 +18,8 @@ import com.colors.game.data.model.Position
 /**
  * Renders the NxM game grid.
  *
- * Each cell:
- *  - Animates to its new color smoothly when changed.
- *  - Shows a pulsing highlight border when selected.
- *  - Plays a wave animation based on BFS distance from the changed group.
- *
- * Performance notes:
- *  - Uses key() for stable recomposition — only changed cells recompose.
- *  - Cell clip/shape is constant → no re-layout on every frame.
- *  - Animation specs use spring/tween to avoid jank.
+ * El grupo activo siempre parte de (0,0) — las celdas NO son tapeables.
+ * El resaltado del grupo activo sigue existiendo con animación de pulso.
  */
 @Composable
 fun GameGrid(
@@ -35,9 +27,8 @@ fun GameGrid(
     cols: Int,
     cells: List<GameColor>,
     selectedGroup: Set<Position>,
-    animatingCells: Map<Position, Int>,   // position → BFS wave distance
+    animatingCells: Map<Position, Int>,
     daltonicMode: Boolean,
-    onCellTap: (row: Int, col: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -55,7 +46,6 @@ fun GameGrid(
                             isSelected   = isSelected,
                             waveDistance = waveDistance,
                             daltonicMode = daltonicMode,
-                            onTap        = { onCellTap(row, col) },
                             modifier     = Modifier.weight(1f).aspectRatio(1f)
                         )
                     }
@@ -71,12 +61,10 @@ private fun GridCell(
     isSelected: Boolean,
     waveDistance: Int?,
     daltonicMode: Boolean,
-    onTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Color transition — smooth, spring-based
     val animatedColor by animateColorAsState(
-        targetValue = color.toComposeColor(daltonicMode),
+        targetValue   = color.toComposeColor(daltonicMode),
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness    = Spring.StiffnessMedium
@@ -84,27 +72,19 @@ private fun GridCell(
         label = "cellColor"
     )
 
-    // Wave ripple: cells animate with a delay proportional to BFS distance
-    val waveDelay = (waveDistance ?: 0) * 60  // 60ms per wave ring
+    val waveDelay = (waveDistance ?: 0) * 60
     val waveScale by animateFloatAsState(
-        targetValue = if (waveDistance != null) 1f else 1f,
+        targetValue   = if (waveDistance != null) 1f else 1f,
         animationSpec = if (waveDistance != null) {
-            tween(
-                durationMillis = 300,
-                delayMillis    = waveDelay,
-                easing         = FastOutSlowInEasing
-            )
-        } else {
-            snap()
-        },
+            tween(durationMillis = 300, delayMillis = waveDelay, easing = FastOutSlowInEasing)
+        } else snap(),
         label = "waveScale"
     )
 
-    // Selection pulse animation
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseBorderAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue  = 1.0f,
+        initialValue  = 0.5f,
+        targetValue   = 1.0f,
         animationSpec = infiniteRepeatable(
             animation  = tween(600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -126,6 +106,5 @@ private fun GridCell(
                     shape = cellShape
                 ) else Modifier
             )
-            .clickable(onClick = onTap)
     )
 }

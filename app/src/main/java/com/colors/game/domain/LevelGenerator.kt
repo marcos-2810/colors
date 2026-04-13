@@ -77,9 +77,9 @@ class LevelGenerator(private val solver: GreedySolver = GreedySolver()) {
         }
 
         val slack = forcedSlack ?: when (difficulty) {
-            Difficulty.EASY   -> rng.nextInt(4, 8)   // 4-7 extra moves
+            Difficulty.EASY   -> rng.nextInt(2, 4)   // 2-3 extra moves
             Difficulty.MEDIUM -> rng.nextInt(3, 6)   // 3-5 extra moves
-            Difficulty.HARD   -> rng.nextInt(1, 4)   // 1-3 extra moves
+            Difficulty.HARD   -> rng.nextInt(4, 8)   // 4-7 extra moves
         }
 
         return Level(
@@ -160,36 +160,10 @@ class LevelGenerator(private val solver: GreedySolver = GreedySolver()) {
      * Grid dimensions scale progressively within each difficulty tier.
      * Sizes chosen to keep runtime low and gameplay engaging on mobile.
      */
-    private fun dimensionsFor(id: Int, difficulty: Difficulty): Pair<Int, Int> {
-        return when (difficulty) {
-            Difficulty.EASY -> {
-                // IDs 1-100: 5×5 → 6×6 → 7×7
-                val p = (id - 1) / 99f
-                when {
-                    p < 0.33f -> 5 to 5
-                    p < 0.67f -> 6 to 6
-                    else       -> 7 to 7
-                }
-            }
-            Difficulty.MEDIUM -> {
-                // IDs 101-200: 7×7 → 8×8 → 9×9
-                val p = (id - 101) / 99f
-                when {
-                    p < 0.33f -> 7 to 7
-                    p < 0.67f -> 8 to 8
-                    else       -> 9 to 9
-                }
-            }
-            Difficulty.HARD -> {
-                // IDs 201-500: 9×9 → 10×10 → 11×11 → 12×12
-                val p = (id - 201) / 299f
-                when {
-                    p < 0.25f -> 9  to 9
-                    p < 0.50f -> 10 to 10
-                    p < 0.75f -> 11 to 11
-                    else       -> 12 to 12
-                }
-            }
+    private fun dimensionsFor(id: Int, difficulty: Difficulty): Pair<Int, Int> =
+        when (difficulty) {
+            Difficulty.EASY   -> 8  to 8
+            Difficulty.MEDIUM -> 10 to 10
+            Difficulty.HARD   -> 15 to 15
         }
-    }
 }

@@ -17,7 +17,7 @@ enum class GameColor {
     BROWN,
     PURPLE,
     ORANGE,
-    BLACK;
+    PINK;
 
     fun toComposeColor(daltonicMode: Boolean = false): Color = when (this) {
         RED    -> if (daltonicMode) Color(0xFFCC3311) else Color(0xFFE53935)
@@ -27,7 +27,7 @@ enum class GameColor {
         BROWN  -> if (daltonicMode) Color(0xFF994455) else Color(0xFF6D4C41)
         PURPLE -> if (daltonicMode) Color(0xFFAA3377) else Color(0xFF8E24AA)
         ORANGE -> if (daltonicMode) Color(0xFFEE7733) else Color(0xFFF57C00)
-        BLACK  -> if (daltonicMode) Color(0xFF222255) else Color(0xFF212121)
+        PINK   -> if (daltonicMode) Color(0xFFFF85C1) else Color(0xFFE91E8C)
     }
 
     /** Lighter tint used for selected cell highlight */

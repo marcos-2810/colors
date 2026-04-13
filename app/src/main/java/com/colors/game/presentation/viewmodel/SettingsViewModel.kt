@@ -3,6 +3,7 @@ package com.colors.game.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colors.game.data.model.AppSettings
+import com.colors.game.data.model.Language
 import com.colors.game.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,6 +26,7 @@ class SettingsViewModel @Inject constructor(
     fun setSound(enabled: Boolean)        = update { it.copy(soundEnabled = enabled) }
     fun setMusic(enabled: Boolean)        = update { it.copy(musicEnabled = enabled) }
     fun setVibration(enabled: Boolean)    = update { it.copy(vibrationEnabled = enabled) }
+    fun setLanguage(language: Language)   = update { it.copy(language = language) }
 
     private fun update(transform: (AppSettings) -> AppSettings) {
         viewModelScope.launch {

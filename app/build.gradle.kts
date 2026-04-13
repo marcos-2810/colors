@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.gms.google-services")
     kotlin("kapt")
 }
 
@@ -83,7 +84,6 @@ dependencies {
 
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.1")
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.51.1")
@@ -98,6 +98,14 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    // Google Play Games Services v2 (player identity)
+    implementation("com.google.android.gms:play-services-games-v2:19.0.0")
+
+    // Firebase (per-level leaderboard storage)
+    implementation(platform("com.google.firebase:firebase-bom:32.7.4"))
+    implementation("com.google.firebase:firebase-firestore-ktx")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

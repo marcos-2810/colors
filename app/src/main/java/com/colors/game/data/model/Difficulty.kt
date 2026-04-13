@@ -27,7 +27,7 @@ enum class Difficulty(
         displayName = "Difícil",
         colorPalette = listOf(
             GameColor.RED, GameColor.GREEN, GameColor.BLUE, GameColor.YELLOW,
-            GameColor.BROWN, GameColor.PURPLE, GameColor.ORANGE, GameColor.BLACK
+            GameColor.BROWN, GameColor.PURPLE, GameColor.ORANGE, GameColor.PINK
         ),
         timeLimitSeconds = 900
     )
