@@ -13,6 +13,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -41,8 +46,9 @@ fun MainMenuScreen(
     val strings  = LocalStrings.current
     val context  = LocalContext.current
 
-    var showTutorial  by remember { mutableStateOf(false) }
-    var pendingLevelId by remember { mutableIntStateOf(1) }
+    var showTutorial    by remember { mutableStateOf(false) }
+    var pendingLevelId  by remember { mutableIntStateOf(1) }
+    var showRedeemDialog by remember { mutableStateOf(false) }
 
     fun onPlayPressed() {
         pendingLevelId = uiState.nextLevelId
@@ -86,7 +92,7 @@ fun MainMenuScreen(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text       = "Colors",
+                text       = "Color Puzzles",
                 style      = MaterialTheme.typography.displayLarge,
                 color      = Color.White,
                 fontWeight = FontWeight.ExtraBold
@@ -97,6 +103,31 @@ fun MainMenuScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = OnSurfaceDim
             )
+
+            // Premium badge — only shown when user owns the upgrade
+            if (uiState.isPremium) {
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier              = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(StarColor.copy(alpha = 0.15f))
+                        .padding(horizontal = 14.dp, vertical = 5.dp)
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.WorkspacePremium,
+                        contentDescription = null,
+                        tint               = StarColor,
+                        modifier           = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text       = strings.premiumOwned,
+                        style      = MaterialTheme.typography.labelLarge,
+                        color      = StarColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
             Spacer(Modifier.height(24.dp))
 
@@ -140,6 +171,32 @@ fun MainMenuScreen(
                 onClick = onSelectLevel
             )
 
+            // Premium upgrade button + redeem link — hidden once purchased
+            if (!uiState.isPremium) {
+                PremiumButton(
+                    label    = strings.getPremium,
+                    subLabel = strings.premiumDesc,
+                    onClick  = { viewModel.purchasePremium(context as Activity) }
+                )
+                TextButton(
+                    onClick  = { showRedeemDialog = true },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.ConfirmationNumber,
+                        contentDescription = null,
+                        tint               = OnSurfaceDim,
+                        modifier           = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        text  = strings.redeemCode,
+                        color = OnSurfaceDim,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
             MenuButton(
                 text    = strings.settings,
                 icon    = Icons.Default.Settings,
@@ -152,6 +209,15 @@ fun MainMenuScreen(
                 icon    = Icons.Default.ExitToApp,
                 color   = Color(0xFF424242),
                 onClick = { (context as? Activity)?.finish() }
+            )
+        }
+
+        // Redeem code dialog
+        if (showRedeemDialog) {
+            RedeemCodeDialog(
+                strings   = strings,
+                viewModel = viewModel,
+                onDismiss = { showRedeemDialog = false }
             )
         }
 
@@ -189,5 +255,137 @@ private fun MenuButton(
         Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(12.dp))
         Text(text, style = MaterialTheme.typography.titleMedium, color = Color.White)
+    }
+}
+
+@Composable
+private fun RedeemCodeDialog(
+    strings: com.colors.game.ui.AppStrings,
+    viewModel: MainMenuViewModel,
+    onDismiss: () -> Unit
+) {
+    var code       by remember { mutableStateOf("") }
+    var errorMsg   by remember { mutableStateOf<String?>(null) }
+    var successMsg by remember { mutableStateOf<String?>(null) }
+    val scope      = rememberCoroutineScope()
+
+    fun tryRedeem() {
+        scope.launch {
+            val valid = viewModel.redeemCode(code)
+            if (valid) {
+                successMsg = strings.redeemCodeSuccess
+                errorMsg   = null
+            } else {
+                errorMsg   = strings.redeemCodeError
+                successMsg = null
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest  = onDismiss,
+        containerColor    = Color(0xFF1E1035),
+        title = {
+            Text(
+                text  = strings.redeemCodeTitle,
+                color = Color.White,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value         = code,
+                    onValueChange = { code = it.uppercase(); errorMsg = null; successMsg = null },
+                    placeholder   = { Text(strings.redeemCodeHint, color = OnSurfaceDim) },
+                    singleLine    = true,
+                    modifier      = Modifier.fillMaxWidth(),
+                    colors        = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor   = Primary,
+                        unfocusedBorderColor = OnSurfaceDim.copy(alpha = 0.4f),
+                        focusedTextColor     = Color.White,
+                        unfocusedTextColor   = Color.White,
+                        cursorColor          = Primary
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Characters,
+                        imeAction      = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { tryRedeem() })
+                )
+                // Feedback messages
+                successMsg?.let {
+                    Text(it, color = SuccessGreen,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                errorMsg?.let {
+                    Text(it, color = ErrorRed,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            if (successMsg != null) {
+                // After success, only show Close
+                TextButton(onClick = onDismiss) {
+                    Text(strings.back, color = Primary)
+                }
+            } else {
+                Button(
+                    onClick  = { tryRedeem() },
+                    enabled  = code.isNotBlank(),
+                    colors   = ButtonDefaults.buttonColors(containerColor = Primary)
+                ) {
+                    Text(strings.redeemCodeButton, color = Color.White)
+                }
+            }
+        },
+        dismissButton = {
+            if (successMsg == null) {
+                TextButton(onClick = onDismiss) {
+                    Text(strings.back, color = OnSurfaceDim)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun PremiumButton(
+    label: String,
+    subLabel: String,
+    onClick: () -> Unit
+) {
+    val goldDark  = Color(0xFFAA8500)
+    val goldLight = Color(0xFFFFD600)
+
+    Button(
+        onClick   = onClick,
+        modifier  = Modifier.fillMaxWidth().height(62.dp),
+        colors    = ButtonDefaults.buttonColors(containerColor = goldDark),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+    ) {
+        Icon(
+            imageVector        = Icons.Default.WorkspacePremium,
+            contentDescription = null,
+            tint               = goldLight,
+            modifier           = Modifier.size(24.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(
+                text       = label,
+                style      = MaterialTheme.typography.titleMedium,
+                color      = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text  = subLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = goldLight.copy(alpha = 0.85f)
+            )
+        }
     }
 }

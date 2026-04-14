@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colors.game.data.model.*
+import com.colors.game.data.remote.AdManager
 import com.colors.game.data.remote.LeaderboardRepository
 import com.colors.game.data.repository.GameStateRepository
 import com.colors.game.data.repository.LevelRepository
@@ -28,8 +29,14 @@ data class GameUiState(
     val showPauseMenu: Boolean = false,
     val showResultDialog: Boolean = false,
     val showLeaderboard: Boolean = false,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    /** Set to true by the ViewModel when an interstitial should be shown. */
+    val showAd: Boolean = false,
+    /** Identifies what should happen after the ad is dismissed. */
+    val adTrigger: AdTrigger = AdTrigger.NONE
 )
+
+enum class AdTrigger { NONE, LEVEL_COMPLETED, TIME_LIMIT }
 
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -37,7 +44,8 @@ class GameViewModel @Inject constructor(
     private val levelRepo: LevelRepository,
     private val gameStateRepo: GameStateRepository,
     private val settingsRepo: SettingsRepository,
-    private val leaderboardRepo: LeaderboardRepository
+    private val leaderboardRepo: LeaderboardRepository,
+    private val adManager: AdManager
 ) : ViewModel() {
 
     private val levelId: Int = checkNotNull(savedStateHandle["levelId"])
@@ -46,6 +54,8 @@ class GameViewModel @Inject constructor(
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
+    /** Prevents the time-limit ad from firing more than once per level session. */
+    private var timeLimitAdShown = false
 
     init {
         loadGame()
@@ -121,6 +131,13 @@ class GameViewModel @Inject constructor(
                 val newState = state.copy(timeElapsedSeconds = state.timeElapsedSeconds + 1)
                 _uiState.update { it.copy(gameState = newState) }
                 autoSave(newState)
+
+                // Time-limit ad trigger: 5 minutes in a single level
+                if (!timeLimitAdShown &&
+                    newState.timeElapsedSeconds >= AdManager.SECONDS_PER_AD) {
+                    timeLimitAdShown = true
+                    _uiState.update { it.copy(showAd = true, adTrigger = AdTrigger.TIME_LIMIT) }
+                }
             }
         }
     }
@@ -187,9 +204,14 @@ class GameViewModel @Inject constructor(
             stopTimer()
             viewModelScope.launch {
                 delay(600) // let animation play
-                _uiState.update { it.copy(showResultDialog = true) }
                 recordResult(newState)
                 gameStateRepo.clearActiveGame()
+                // Completion ad trigger: show ad every N completed levels
+                if (newState.isCompleted) {
+                    _uiState.update { it.copy(showAd = true, adTrigger = AdTrigger.LEVEL_COMPLETED) }
+                } else {
+                    _uiState.update { it.copy(showResultDialog = true) }
+                }
             }
         } else {
             viewModelScope.launch {
@@ -212,6 +234,7 @@ class GameViewModel @Inject constructor(
     fun restartLevel() {
         stopTimer()
         timerJob = null
+        timeLimitAdShown = false
         viewModelScope.launch {
             gameStateRepo.clearActiveGame()
             val fresh = buildFreshGameState(levelId)
@@ -220,7 +243,8 @@ class GameViewModel @Inject constructor(
                 it.copy(
                     gameState = fresh.copy(selectedGroup = initialGroup),
                     showPauseMenu = false,
-                    showResultDialog = false
+                    showResultDialog = false,
+                    showAd = false
                 )
             }
         }
@@ -255,6 +279,34 @@ class GameViewModel @Inject constructor(
 
     fun showLeaderboard()    = _uiState.update { it.copy(showLeaderboard = true) }
     fun dismissLeaderboard() = _uiState.update { it.copy(showLeaderboard = false) }
+
+    /**
+     * Called by the Screen to actually show the interstitial via AdManager.
+     * Returns true if the ad was shown (false = not loaded yet, proceed immediately).
+     */
+    fun requestAd(activity: android.app.Activity): Boolean {
+        val trigger = _uiState.value.adTrigger
+        _uiState.update { it.copy(showAd = false) }   // consume the flag
+
+        val onFinished = {
+            when (trigger) {
+                AdTrigger.LEVEL_COMPLETED ->
+                    _uiState.update { it.copy(showResultDialog = true) }
+                AdTrigger.TIME_LIMIT ->
+                    Unit // just resume — the game continues after the ad
+                AdTrigger.NONE -> Unit
+            }
+        }
+
+        return when (trigger) {
+            AdTrigger.LEVEL_COMPLETED -> adManager.onLevelCompleted(activity, onFinished)
+            AdTrigger.TIME_LIMIT      -> adManager.onTimeLimitReached(activity, onFinished)
+            AdTrigger.NONE            -> false
+        }.also { adShown ->
+            // If no ad was available, proceed immediately
+            if (!adShown) onFinished()
+        }
+    }
 
     private suspend fun recordResult(state: GameState) {
         val stars     = state.computeStars()

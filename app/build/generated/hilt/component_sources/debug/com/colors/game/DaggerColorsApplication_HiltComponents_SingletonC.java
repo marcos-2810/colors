@@ -7,6 +7,10 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
 import com.colors.game.data.local.DataStoreManager;
+import com.colors.game.data.remote.AdManager;
+import com.colors.game.data.remote.BillingManager;
+import com.colors.game.data.remote.LeaderboardRepository;
+import com.colors.game.data.remote.PlayGamesManager;
 import com.colors.game.data.repository.GameStateRepository;
 import com.colors.game.data.repository.LevelRepository;
 import com.colors.game.data.repository.SettingsRepository;
@@ -16,12 +20,17 @@ import com.colors.game.domain.GreedySolver;
 import com.colors.game.domain.LevelGenerator;
 import com.colors.game.presentation.viewmodel.GameViewModel;
 import com.colors.game.presentation.viewmodel.GameViewModel_HiltModules;
+import com.colors.game.presentation.viewmodel.LeaderboardViewModel;
+import com.colors.game.presentation.viewmodel.LeaderboardViewModel_HiltModules;
 import com.colors.game.presentation.viewmodel.LevelSelectorViewModel;
 import com.colors.game.presentation.viewmodel.LevelSelectorViewModel_HiltModules;
 import com.colors.game.presentation.viewmodel.MainMenuViewModel;
 import com.colors.game.presentation.viewmodel.MainMenuViewModel_HiltModules;
 import com.colors.game.presentation.viewmodel.SettingsViewModel;
 import com.colors.game.presentation.viewmodel.SettingsViewModel_HiltModules;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import dagger.hilt.android.ActivityRetainedLifecycle;
 import dagger.hilt.android.ViewModelLifecycle;
 import dagger.hilt.android.internal.builders.ActivityComponentBuilder;
@@ -42,10 +51,8 @@ import dagger.internal.DoubleCheck;
 import dagger.internal.IdentifierNameString;
 import dagger.internal.KeepFieldType;
 import dagger.internal.LazyClassKeyMap;
-import dagger.internal.MapBuilder;
 import dagger.internal.Preconditions;
 import dagger.internal.Provider;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Generated;
@@ -373,6 +380,7 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
 
     @Override
     public void injectMainActivity(MainActivity arg0) {
+      injectMainActivity2(arg0);
     }
 
     @Override
@@ -382,7 +390,7 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
 
     @Override
     public Map<Class<?>, Boolean> getViewModelKeys() {
-      return LazyClassKeyMap.<Boolean>of(MapBuilder.<String, Boolean>newMapBuilder(4).put(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_GameViewModel, GameViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_LevelSelectorViewModel, LevelSelectorViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_MainMenuViewModel, MainMenuViewModel_HiltModules.KeyModule.provide()).put(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_SettingsViewModel, SettingsViewModel_HiltModules.KeyModule.provide()).build());
+      return LazyClassKeyMap.<Boolean>of(ImmutableMap.<String, Boolean>of(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_GameViewModel, GameViewModel_HiltModules.KeyModule.provide(), LazyClassKeyProvider.com_colors_game_presentation_viewmodel_LeaderboardViewModel, LeaderboardViewModel_HiltModules.KeyModule.provide(), LazyClassKeyProvider.com_colors_game_presentation_viewmodel_LevelSelectorViewModel, LevelSelectorViewModel_HiltModules.KeyModule.provide(), LazyClassKeyProvider.com_colors_game_presentation_viewmodel_MainMenuViewModel, MainMenuViewModel_HiltModules.KeyModule.provide(), LazyClassKeyProvider.com_colors_game_presentation_viewmodel_SettingsViewModel, SettingsViewModel_HiltModules.KeyModule.provide()));
     }
 
     @Override
@@ -400,27 +408,38 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
       return new ViewCBuilder(singletonCImpl, activityRetainedCImpl, activityCImpl);
     }
 
+    @CanIgnoreReturnValue
+    private MainActivity injectMainActivity2(MainActivity instance) {
+      MainActivity_MembersInjector.injectPlayGamesManager(instance, singletonCImpl.playGamesManagerProvider.get());
+      return instance;
+    }
+
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String com_colors_game_presentation_viewmodel_MainMenuViewModel = "com.colors.game.presentation.viewmodel.MainMenuViewModel";
-
       static String com_colors_game_presentation_viewmodel_LevelSelectorViewModel = "com.colors.game.presentation.viewmodel.LevelSelectorViewModel";
-
-      static String com_colors_game_presentation_viewmodel_GameViewModel = "com.colors.game.presentation.viewmodel.GameViewModel";
 
       static String com_colors_game_presentation_viewmodel_SettingsViewModel = "com.colors.game.presentation.viewmodel.SettingsViewModel";
 
-      @KeepFieldType
-      MainMenuViewModel com_colors_game_presentation_viewmodel_MainMenuViewModel2;
+      static String com_colors_game_presentation_viewmodel_GameViewModel = "com.colors.game.presentation.viewmodel.GameViewModel";
+
+      static String com_colors_game_presentation_viewmodel_MainMenuViewModel = "com.colors.game.presentation.viewmodel.MainMenuViewModel";
+
+      static String com_colors_game_presentation_viewmodel_LeaderboardViewModel = "com.colors.game.presentation.viewmodel.LeaderboardViewModel";
 
       @KeepFieldType
       LevelSelectorViewModel com_colors_game_presentation_viewmodel_LevelSelectorViewModel2;
 
       @KeepFieldType
+      SettingsViewModel com_colors_game_presentation_viewmodel_SettingsViewModel2;
+
+      @KeepFieldType
       GameViewModel com_colors_game_presentation_viewmodel_GameViewModel2;
 
       @KeepFieldType
-      SettingsViewModel com_colors_game_presentation_viewmodel_SettingsViewModel2;
+      MainMenuViewModel com_colors_game_presentation_viewmodel_MainMenuViewModel2;
+
+      @KeepFieldType
+      LeaderboardViewModel com_colors_game_presentation_viewmodel_LeaderboardViewModel2;
     }
   }
 
@@ -434,6 +453,8 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
     private final ViewModelCImpl viewModelCImpl = this;
 
     private Provider<GameViewModel> gameViewModelProvider;
+
+    private Provider<LeaderboardViewModel> leaderboardViewModelProvider;
 
     private Provider<LevelSelectorViewModel> levelSelectorViewModelProvider;
 
@@ -455,42 +476,48 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
     private void initialize(final SavedStateHandle savedStateHandleParam,
         final ViewModelLifecycle viewModelLifecycleParam) {
       this.gameViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 0);
-      this.levelSelectorViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 1);
-      this.mainMenuViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 2);
-      this.settingsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 3);
+      this.leaderboardViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 1);
+      this.levelSelectorViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 2);
+      this.mainMenuViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 3);
+      this.settingsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 4);
     }
 
     @Override
     public Map<Class<?>, javax.inject.Provider<ViewModel>> getHiltViewModelMap() {
-      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(MapBuilder.<String, javax.inject.Provider<ViewModel>>newMapBuilder(4).put(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_GameViewModel, ((Provider) gameViewModelProvider)).put(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_LevelSelectorViewModel, ((Provider) levelSelectorViewModelProvider)).put(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_MainMenuViewModel, ((Provider) mainMenuViewModelProvider)).put(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_SettingsViewModel, ((Provider) settingsViewModelProvider)).build());
+      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(ImmutableMap.<String, javax.inject.Provider<ViewModel>>of(LazyClassKeyProvider.com_colors_game_presentation_viewmodel_GameViewModel, ((Provider) gameViewModelProvider), LazyClassKeyProvider.com_colors_game_presentation_viewmodel_LeaderboardViewModel, ((Provider) leaderboardViewModelProvider), LazyClassKeyProvider.com_colors_game_presentation_viewmodel_LevelSelectorViewModel, ((Provider) levelSelectorViewModelProvider), LazyClassKeyProvider.com_colors_game_presentation_viewmodel_MainMenuViewModel, ((Provider) mainMenuViewModelProvider), LazyClassKeyProvider.com_colors_game_presentation_viewmodel_SettingsViewModel, ((Provider) settingsViewModelProvider)));
     }
 
     @Override
     public Map<Class<?>, Object> getHiltViewModelAssistedMap() {
-      return Collections.<Class<?>, Object>emptyMap();
+      return ImmutableMap.<Class<?>, Object>of();
     }
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String com_colors_game_presentation_viewmodel_SettingsViewModel = "com.colors.game.presentation.viewmodel.SettingsViewModel";
+      static String com_colors_game_presentation_viewmodel_MainMenuViewModel = "com.colors.game.presentation.viewmodel.MainMenuViewModel";
 
-      static String com_colors_game_presentation_viewmodel_LevelSelectorViewModel = "com.colors.game.presentation.viewmodel.LevelSelectorViewModel";
+      static String com_colors_game_presentation_viewmodel_SettingsViewModel = "com.colors.game.presentation.viewmodel.SettingsViewModel";
 
       static String com_colors_game_presentation_viewmodel_GameViewModel = "com.colors.game.presentation.viewmodel.GameViewModel";
 
-      static String com_colors_game_presentation_viewmodel_MainMenuViewModel = "com.colors.game.presentation.viewmodel.MainMenuViewModel";
+      static String com_colors_game_presentation_viewmodel_LeaderboardViewModel = "com.colors.game.presentation.viewmodel.LeaderboardViewModel";
+
+      static String com_colors_game_presentation_viewmodel_LevelSelectorViewModel = "com.colors.game.presentation.viewmodel.LevelSelectorViewModel";
+
+      @KeepFieldType
+      MainMenuViewModel com_colors_game_presentation_viewmodel_MainMenuViewModel2;
 
       @KeepFieldType
       SettingsViewModel com_colors_game_presentation_viewmodel_SettingsViewModel2;
 
       @KeepFieldType
-      LevelSelectorViewModel com_colors_game_presentation_viewmodel_LevelSelectorViewModel2;
-
-      @KeepFieldType
       GameViewModel com_colors_game_presentation_viewmodel_GameViewModel2;
 
       @KeepFieldType
-      MainMenuViewModel com_colors_game_presentation_viewmodel_MainMenuViewModel2;
+      LeaderboardViewModel com_colors_game_presentation_viewmodel_LeaderboardViewModel2;
+
+      @KeepFieldType
+      LevelSelectorViewModel com_colors_game_presentation_viewmodel_LevelSelectorViewModel2;
     }
 
     private static final class SwitchingProvider<T> implements Provider<T> {
@@ -515,15 +542,18 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
       public T get() {
         switch (id) {
           case 0: // com.colors.game.presentation.viewmodel.GameViewModel 
-          return (T) new GameViewModel(viewModelCImpl.savedStateHandle, singletonCImpl.levelRepositoryProvider.get(), singletonCImpl.gameStateRepositoryProvider.get(), singletonCImpl.settingsRepositoryProvider.get());
+          return (T) new GameViewModel(viewModelCImpl.savedStateHandle, singletonCImpl.levelRepositoryProvider.get(), singletonCImpl.gameStateRepositoryProvider.get(), singletonCImpl.settingsRepositoryProvider.get(), singletonCImpl.leaderboardRepositoryProvider.get(), singletonCImpl.adManagerProvider.get());
 
-          case 1: // com.colors.game.presentation.viewmodel.LevelSelectorViewModel 
+          case 1: // com.colors.game.presentation.viewmodel.LeaderboardViewModel 
+          return (T) new LeaderboardViewModel(singletonCImpl.leaderboardRepositoryProvider.get(), singletonCImpl.playGamesManagerProvider.get());
+
+          case 2: // com.colors.game.presentation.viewmodel.LevelSelectorViewModel 
           return (T) new LevelSelectorViewModel(singletonCImpl.levelRepositoryProvider.get(), singletonCImpl.gameStateRepositoryProvider.get());
 
-          case 2: // com.colors.game.presentation.viewmodel.MainMenuViewModel 
-          return (T) new MainMenuViewModel(singletonCImpl.gameStateRepositoryProvider.get(), singletonCImpl.settingsRepositoryProvider.get());
+          case 3: // com.colors.game.presentation.viewmodel.MainMenuViewModel 
+          return (T) new MainMenuViewModel(singletonCImpl.gameStateRepositoryProvider.get(), singletonCImpl.settingsRepositoryProvider.get(), singletonCImpl.billingManagerProvider.get());
 
-          case 3: // com.colors.game.presentation.viewmodel.SettingsViewModel 
+          case 4: // com.colors.game.presentation.viewmodel.SettingsViewModel 
           return (T) new SettingsViewModel(singletonCImpl.settingsRepositoryProvider.get());
 
           default: throw new AssertionError(id);
@@ -606,6 +636,8 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
 
     private final SingletonCImpl singletonCImpl = this;
 
+    private Provider<PlayGamesManager> playGamesManagerProvider;
+
     private Provider<GreedySolver> provideGreedySolverProvider;
 
     private Provider<LevelGenerator> provideLevelGeneratorProvider;
@@ -618,6 +650,12 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
 
     private Provider<SettingsRepository> settingsRepositoryProvider;
 
+    private Provider<LeaderboardRepository> leaderboardRepositoryProvider;
+
+    private Provider<BillingManager> billingManagerProvider;
+
+    private Provider<AdManager> adManagerProvider;
+
     private SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
       this.applicationContextModule = applicationContextModuleParam;
       initialize(applicationContextModuleParam);
@@ -626,21 +664,25 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
 
     @SuppressWarnings("unchecked")
     private void initialize(final ApplicationContextModule applicationContextModuleParam) {
-      this.provideGreedySolverProvider = DoubleCheck.provider(new SwitchingProvider<GreedySolver>(singletonCImpl, 2));
-      this.provideLevelGeneratorProvider = DoubleCheck.provider(new SwitchingProvider<LevelGenerator>(singletonCImpl, 1));
-      this.levelRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<LevelRepository>(singletonCImpl, 0));
-      this.dataStoreManagerProvider = DoubleCheck.provider(new SwitchingProvider<DataStoreManager>(singletonCImpl, 4));
-      this.gameStateRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<GameStateRepository>(singletonCImpl, 3));
-      this.settingsRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<SettingsRepository>(singletonCImpl, 5));
+      this.playGamesManagerProvider = DoubleCheck.provider(new SwitchingProvider<PlayGamesManager>(singletonCImpl, 0));
+      this.provideGreedySolverProvider = DoubleCheck.provider(new SwitchingProvider<GreedySolver>(singletonCImpl, 3));
+      this.provideLevelGeneratorProvider = DoubleCheck.provider(new SwitchingProvider<LevelGenerator>(singletonCImpl, 2));
+      this.levelRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<LevelRepository>(singletonCImpl, 1));
+      this.dataStoreManagerProvider = DoubleCheck.provider(new SwitchingProvider<DataStoreManager>(singletonCImpl, 5));
+      this.gameStateRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<GameStateRepository>(singletonCImpl, 4));
+      this.settingsRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<SettingsRepository>(singletonCImpl, 6));
+      this.leaderboardRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<LeaderboardRepository>(singletonCImpl, 7));
+      this.billingManagerProvider = DoubleCheck.provider(new SwitchingProvider<BillingManager>(singletonCImpl, 9));
+      this.adManagerProvider = DoubleCheck.provider(new SwitchingProvider<AdManager>(singletonCImpl, 8));
     }
 
     @Override
-    public void injectColorsApplication(ColorsApplication colorsApplication) {
+    public void injectColorsApplication(ColorsApplication arg0) {
     }
 
     @Override
     public Set<Boolean> getDisableFragmentGetContextFix() {
-      return Collections.<Boolean>emptySet();
+      return ImmutableSet.<Boolean>of();
     }
 
     @Override
@@ -667,23 +709,35 @@ public final class DaggerColorsApplication_HiltComponents_SingletonC {
       @Override
       public T get() {
         switch (id) {
-          case 0: // com.colors.game.data.repository.LevelRepository 
+          case 0: // com.colors.game.data.remote.PlayGamesManager 
+          return (T) new PlayGamesManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 1: // com.colors.game.data.repository.LevelRepository 
           return (T) new LevelRepository(singletonCImpl.provideLevelGeneratorProvider.get(), ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 1: // com.colors.game.domain.LevelGenerator 
+          case 2: // com.colors.game.domain.LevelGenerator 
           return (T) AppModule_ProvideLevelGeneratorFactory.provideLevelGenerator(singletonCImpl.provideGreedySolverProvider.get());
 
-          case 2: // com.colors.game.domain.GreedySolver 
+          case 3: // com.colors.game.domain.GreedySolver 
           return (T) AppModule_ProvideGreedySolverFactory.provideGreedySolver();
 
-          case 3: // com.colors.game.data.repository.GameStateRepository 
+          case 4: // com.colors.game.data.repository.GameStateRepository 
           return (T) new GameStateRepository(singletonCImpl.dataStoreManagerProvider.get());
 
-          case 4: // com.colors.game.data.local.DataStoreManager 
+          case 5: // com.colors.game.data.local.DataStoreManager 
           return (T) new DataStoreManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 5: // com.colors.game.data.repository.SettingsRepository 
+          case 6: // com.colors.game.data.repository.SettingsRepository 
           return (T) new SettingsRepository(singletonCImpl.dataStoreManagerProvider.get());
+
+          case 7: // com.colors.game.data.remote.LeaderboardRepository 
+          return (T) new LeaderboardRepository(singletonCImpl.playGamesManagerProvider.get());
+
+          case 8: // com.colors.game.data.remote.AdManager 
+          return (T) new AdManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.billingManagerProvider.get());
+
+          case 9: // com.colors.game.data.remote.BillingManager 
+          return (T) new BillingManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
           default: throw new AssertionError(id);
         }

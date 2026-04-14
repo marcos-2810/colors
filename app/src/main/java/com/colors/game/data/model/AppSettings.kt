@@ -9,5 +9,7 @@ data class AppSettings(
     val musicEnabled: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val tutorialCompleted: Boolean = false,
-    val language: Language = Language.EN
+    val language: Language = Language.EN,
+    /** True when premium was unlocked via a promo code (persisted locally). */
+    val isPremiumUnlocked: Boolean = false
 )

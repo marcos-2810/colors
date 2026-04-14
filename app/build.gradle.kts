@@ -3,7 +3,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
     id("org.jetbrains.kotlin.plugin.serialization")
-    id("com.google.gms.google-services")
     kotlin("kapt")
 }
 
@@ -19,6 +18,9 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        // True only when google-services.json is present in app/ at Gradle sync time.
+        // Controls whether Firebase is initialized at runtime.
+        buildConfigField("boolean", "FIREBASE_ENABLED", "${file("google-services.json").exists()}")
     }
 
     buildTypes {
@@ -48,6 +50,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -103,6 +106,12 @@ dependencies {
     // Google Play Games Services v2 (player identity)
     implementation("com.google.android.gms:play-services-games-v2:19.0.0")
 
+    // Google Play Billing (premium one-time purchase)
+    implementation("com.android.billingclient:billing-ktx:6.2.1")
+
+    // Google AdMob (interstitial ads)
+    implementation("com.google.android.gms:play-services-ads:23.1.0")
+
     // Firebase (per-level leaderboard storage)
     implementation(platform("com.google.firebase:firebase-bom:32.7.4"))
     implementation("com.google.firebase:firebase-firestore-ktx")
@@ -114,4 +123,11 @@ dependencies {
 
 kapt {
     correctErrorTypes = true
+}
+
+// Apply the Google Services plugin only when google-services.json is present.
+// This lets the project build and run without Firebase configured.
+// Once you add google-services.json from Firebase Console, re-sync Gradle.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }

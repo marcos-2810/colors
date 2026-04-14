@@ -112,15 +112,7 @@ internal fun RankingTabs(
     TabRow(
         selectedTabIndex = selectedTab,
         containerColor   = Color.Transparent,
-        contentColor     = Primary,
-        indicator        = { tabPositions ->
-            if (selectedTab < tabPositions.size) {
-                TabRowDefaults.SecondaryIndicator(
-                    modifier  = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color     = Primary
-                )
-            }
-        }
+        contentColor     = Primary
     ) {
         tabLabels.forEachIndexed { i, label ->
             Tab(

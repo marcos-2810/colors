@@ -1,6 +1,8 @@
 package com.colors.game
 
 import android.app.Application
+import com.colors.game.BuildConfig
+import com.google.android.gms.ads.MobileAds
 import com.google.firebase.FirebaseApp
 import dagger.hilt.android.HiltAndroidApp
 
@@ -8,6 +10,10 @@ import dagger.hilt.android.HiltAndroidApp
 class ColorsApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        FirebaseApp.initializeApp(this)
+        if (BuildConfig.FIREBASE_ENABLED) {
+            runCatching { FirebaseApp.initializeApp(this) }
+        }
+        // Initialize AdMob — must happen before any ad is requested
+        MobileAds.initialize(this)
     }
 }

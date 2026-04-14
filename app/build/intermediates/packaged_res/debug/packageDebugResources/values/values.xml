@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Colors</string>
+    <string name="admob_app_id" translatable="false">ca-app-pub-3940256099942544~3347511713</string>
+    <string name="admob_interstitial_id" translatable="false">ca-app-pub-3940256099942544/1033173712</string>
+    <string name="app_name">Color Puzzles</string>
     <string name="btn_back">Atrás</string>
     <string name="btn_continue">Continuar</string>
     <string name="btn_exit">Salir</string>
@@ -25,6 +27,7 @@
     <string name="diff_easy">Fácil</string>
     <string name="diff_hard">Difícil</string>
     <string name="diff_medium">Medio</string>
+    <string name="game_services_project_id" translatable="false">000000000000</string>
     <string name="level_locked">Bloqueado</string>
     <string name="level_selector_title">Seleccionar Nivel</string>
     <string name="level_title">Nivel %d</string>

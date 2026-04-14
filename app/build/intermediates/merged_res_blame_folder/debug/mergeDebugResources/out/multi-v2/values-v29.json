@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.colors.game.app-mergeDebugResources-59:/values-v29/values-v29.xml",
+            "outputFile": "com.colors.game.app-mergeDebugResources-72:/values-v29/values-v29.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Usuario\\.gradle\\caches\\transforms-4\\413ab94ddecc3c180f8ca72aea3459e7\\transformed\\core-splashscreen-1.0.1\\res\\values-v29\\values-v29.xml",
+                    "source": "C:\\Users\\Usuario\\.gradle\\caches\\transforms-4\\0f09849873198cb25698c1b4ffec5e09\\transformed\\core-splashscreen-1.0.1\\res\\values-v29\\values-v29.xml",
                     "from": {
                         "startLines": "2,7",
                         "startColumns": "4,4",

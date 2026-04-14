@@ -11,6 +11,9 @@ import javax.inject.Singleton
 /**
  * Firestore-backed leaderboard storage.
  *
+ * When google-services.json is absent (FIREBASE_ENABLED = false), [db] will be null
+ * and every public function is a silent no-op / returns empty data.
+ *
  * Firestore collection: "scores"
  * Document ID:  "{levelId}_{type}_{playerId}"  ← one doc per player per level per metric
  *
@@ -27,8 +30,7 @@ import javax.inject.Singleton
  *   match /databases/{database}/documents {
  *     match /scores/{scoreId} {
  *       allow read: if true;
- *       allow write: if request.auth == null   // replace with proper auth when using Firebase Auth
- *         || scoreId.matches(request.resource.data.playerId + '.*');
+ *       allow write: if scoreId.matches(request.resource.data.playerId + '.*');
  *     }
  *   }
  * }
@@ -37,58 +39,73 @@ import javax.inject.Singleton
 class LeaderboardRepository @Inject constructor(
     private val playGamesManager: PlayGamesManager
 ) {
-    private val db         = FirebaseFirestore.getInstance()
-    private val collection = db.collection("scores")
+    /**
+     * Lazily obtain the Firestore instance.
+     * Returns null if Firebase was never initialized (no google-services.json).
+     */
+    private val db: FirebaseFirestore? by lazy {
+        runCatching { FirebaseFirestore.getInstance() }.getOrNull()
+    }
+
+    /** Whether the leaderboard backend is available at runtime. */
+    val isAvailable: Boolean get() = db != null
 
     companion object {
         private const val TOP_ENTRIES = 50L
+        private const val COLLECTION  = "scores"
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────
 
     /**
      * Returns the top [TOP_ENTRIES] players for [levelId] ranked by [type] (lower = better).
-     * Returns an empty list on network error — never throws.
+     * Returns an empty list when Firebase is unavailable or on network error — never throws.
      */
     suspend fun getTopScores(
         levelId: Int,
         type: LeaderboardType
-    ): List<LeaderboardEntry> = runCatching {
-        val snapshot = collection
-            .whereEqualTo("levelId", levelId)
-            .whereEqualTo("type", type.key)
-            .orderBy("score", Query.Direction.ASCENDING)
-            .limit(TOP_ENTRIES)
-            .get()
-            .await()
+    ): List<LeaderboardEntry> {
+        val col = db?.collection(COLLECTION) ?: return emptyList()
 
-        val currentPlayerId = playGamesManager.player.value?.id
+        return runCatching {
+            val snapshot = col
+                .whereEqualTo("levelId", levelId)
+                .whereEqualTo("type", type.key)
+                .orderBy("score", Query.Direction.ASCENDING)
+                .limit(TOP_ENTRIES)
+                .get()
+                .await()
 
-        snapshot.documents.mapIndexed { index, doc ->
-            val pid = doc.getString("playerId") ?: ""
-            LeaderboardEntry(
-                rank            = index + 1,
-                playerId        = pid,
-                playerName      = doc.getString("playerName") ?: "Player",
-                score           = doc.getLong("score")?.toInt() ?: 0,
-                isCurrentPlayer = pid == currentPlayerId
-            )
-        }
-    }.getOrDefault(emptyList())
+            val currentPlayerId = playGamesManager.player.value?.id
+
+            snapshot.documents.mapIndexed { index, doc ->
+                val pid = doc.getString("playerId") ?: ""
+                LeaderboardEntry(
+                    rank            = index + 1,
+                    playerId        = pid,
+                    playerName      = doc.getString("playerName") ?: "Player",
+                    score           = doc.getLong("score")?.toInt() ?: 0,
+                    isCurrentPlayer = pid == currentPlayerId
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
 
     // ── Write ─────────────────────────────────────────────────────────────────
 
     /**
      * Submits [score] for [levelId]/[type] only if the player is signed in and
-     * the score improves on their personal best. Silent no-op otherwise.
+     * the score improves on their personal best. Silent no-op when Firebase is
+     * unavailable, the player is not signed in, or on network error.
      */
     suspend fun submitScore(levelId: Int, type: LeaderboardType, score: Int) {
+        val col    = db?.collection(COLLECTION) ?: return
         val player = playGamesManager.player.value ?: return
 
-        val docId  = "${levelId}_${type.key}_${player.id}"
-        val docRef = collection.document(docId)
-
         runCatching {
+            val docId  = "${levelId}_${type.key}_${player.id}"
+            val docRef = col.document(docId)
+
             val existing = docRef.get().await()
             val current  = existing.getLong("score")?.toInt()
 

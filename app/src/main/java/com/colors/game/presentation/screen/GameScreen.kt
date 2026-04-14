@@ -44,9 +44,17 @@ fun GameScreen(
     viewModel: GameViewModel = hiltViewModel(),
     leaderboardVm: LeaderboardViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
-    val strings = LocalStrings.current
+    val uiState  by viewModel.uiState.collectAsState()
+    val context  = LocalContext.current
+    val activity = context as? android.app.Activity
+    val strings  = LocalStrings.current
+
+    // Show interstitial ad when the ViewModel requests it
+    LaunchedEffect(uiState.showAd) {
+        if (uiState.showAd && activity != null) {
+            viewModel.requestAd(activity)
+        }
+    }
 
     fun vibrate() {
         if (uiState.settings.vibrationEnabled) {

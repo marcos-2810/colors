@@ -4,6 +4,8 @@ drawable ic_launcher_background
 drawable ic_launcher_foreground
 mipmap ic_launcher
 mipmap ic_launcher_round
+string admob_app_id
+string admob_interstitial_id
 string app_name
 string btn_back
 string btn_continue
@@ -29,6 +31,7 @@ string color_yellow
 string diff_easy
 string diff_hard
 string diff_medium
+string game_services_project_id
 string level_locked
 string level_selector_title
 string level_title
