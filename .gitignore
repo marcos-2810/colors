@@ -1,0 +1,39 @@
+# Build output — NEVER commit these (may contain API keys embedded in binaries)
+build/
+app/build/
+**/build/
+
+# Local configuration — machine-specific, may contain secrets
+local.properties
+*.local.properties
+
+# API keys and service account files
+google-services.json
+google-services-*.json
+*.keystore
+*.jks
+release.jks
+keystore.properties
+
+# Android Studio / IntelliJ
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches
+.idea/modules.xml
+*.iml
+.DS_Store
+
+# Gradle cache
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# Generated files
+gen/
+generated/
+
+# Test output
+test-results/
