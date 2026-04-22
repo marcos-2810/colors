@@ -5,6 +5,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.material.icons.Icons
@@ -25,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -40,6 +43,8 @@ fun MainMenuScreen(
     onSelectLevel: () -> Unit,
     onSettings: () -> Unit,
     onExit: () -> Unit,
+    onDailyPuzzle: (String) -> Unit,
+    onDailyCalendar: () -> Unit,
     viewModel: MainMenuViewModel = hiltViewModel()
 ) {
     val uiState  by viewModel.uiState.collectAsState()
@@ -70,32 +75,42 @@ fun MainMenuScreen(
     )
 
     Box(
-        modifier         = Modifier.fillMaxSize().background(gradient).systemBarsPadding(),
+        modifier         = Modifier
+            .fillMaxSize()
+            .background(gradient)
+            .systemBarsPadding()
+            .verticalScroll(rememberScrollState()),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier            = Modifier.fillMaxWidth().padding(horizontal = 40.dp),
+            modifier            = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp)
+                .padding(vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Logo
             Box(
                 modifier = Modifier
-                    .size(100.dp)
+                    .size(88.dp)
                     .rotate(rotation)
-                    .background(Primary.copy(alpha = 0.2f), RoundedCornerShape(28.dp)),
+                    .background(Primary.copy(alpha = 0.2f), RoundedCornerShape(24.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("●", fontSize = 56.sp)
+                Text("●", fontSize = 48.sp)
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
 
             Text(
                 text       = "Color Puzzles",
-                style      = MaterialTheme.typography.displayLarge,
+                style      = MaterialTheme.typography.displaySmall,
                 color      = Color.White,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                textAlign  = TextAlign.Center,
+                maxLines   = 1,
+                modifier   = Modifier.fillMaxWidth()
             )
 
             Text(
@@ -129,7 +144,7 @@ fun MainMenuScreen(
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(8.dp))
 
             // Play / Next level button (with optional in-progress bar)
             val playText = if (uiState.hasNeverPlayed) strings.start
@@ -169,6 +184,20 @@ fun MainMenuScreen(
                 icon    = Icons.Default.GridView,
                 color   = Color(0xFF5E35B1),
                 onClick = onSelectLevel
+            )
+
+            // Daily puzzle button
+            DailyButton(
+                playedToday = uiState.dailyPlayedToday,
+                labelPlay   = strings.dailyPuzzle,
+                labelSee    = strings.dailyCalendar,
+                onClick     = {
+                    if (uiState.dailyPlayedToday) {
+                        onDailyCalendar()
+                    } else {
+                        onDailyPuzzle(uiState.todayKey)
+                    }
+                }
             )
 
             // Premium upgrade button + redeem link — hidden once purchased
@@ -352,6 +381,48 @@ private fun RedeemCodeDialog(
 }
 
 @Composable
+private fun DailyButton(
+    playedToday: Boolean,
+    labelPlay: String,
+    labelSee: String,
+    onClick: () -> Unit
+) {
+    val teal = Color(0xFF00838F)
+    Button(
+        onClick   = onClick,
+        modifier  = Modifier.fillMaxWidth().height(56.dp),
+        colors    = ButtonDefaults.buttonColors(containerColor = teal),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+    ) {
+        Icon(
+            imageVector        = Icons.Default.CalendarMonth,
+            contentDescription = null,
+            modifier           = Modifier.size(22.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text  = if (playedToday) labelSee else labelPlay,
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White
+        )
+        if (!playedToday) {
+            Spacer(Modifier.width(8.dp))
+            // Subtle "new" badge
+            Text(
+                text     = "NEW",
+                style    = MaterialTheme.typography.labelSmall,
+                color    = teal,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.9f))
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+            )
+        }
+    }
+}
+
+@Composable
 private fun PremiumButton(
     label: String,
     subLabel: String,
@@ -362,7 +433,7 @@ private fun PremiumButton(
 
     Button(
         onClick   = onClick,
-        modifier  = Modifier.fillMaxWidth().height(62.dp),
+        modifier  = Modifier.fillMaxWidth().height(56.dp),
         colors    = ButtonDefaults.buttonColors(containerColor = goldDark),
         shape     = RoundedCornerShape(16.dp),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)

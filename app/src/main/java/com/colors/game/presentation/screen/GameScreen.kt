@@ -197,7 +197,7 @@ fun GameScreen(
 // ── HUD ────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun GameHUD(
+internal fun GameHUD(
     levelId: Int,
     difficulty: String,
     movesRemaining: Int,
@@ -258,7 +258,7 @@ private fun GameHUD(
 // ── Pause menu ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun PauseMenuOverlay(
+internal fun PauseMenuOverlay(
     title: String,
     resumeBtn: String,
     restartBtn: String,
@@ -288,7 +288,7 @@ private fun PauseMenuOverlay(
 }
 
 @Composable
-private fun PauseButton(text: String, color: Color, onClick: () -> Unit) {
+internal fun PauseButton(text: String, color: Color, onClick: () -> Unit) {
     Button(
         onClick  = onClick,
         modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -302,7 +302,7 @@ private fun PauseButton(text: String, color: Color, onClick: () -> Unit) {
 // ── Result dialog ──────────────────────────────────────────────────────────
 
 @Composable
-private fun ResultDialog(
+internal fun ResultDialog(
     isWin: Boolean,
     stars: Int,
     levelId: Int,

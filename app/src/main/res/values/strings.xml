@@ -2,13 +2,9 @@
 <resources>
     <string name="app_name">Color Puzzles</string>
 
-    <!--
-        AdMob App ID and Ad Unit IDs.
-        Replace with real IDs from your AdMob console (https://apps.admob.com).
-        The test App ID below lets ads load during development without real traffic.
-    -->
-    <string name="admob_app_id" translatable="false">ca-app-pub-3940256099942544~3347511713</string>
-    <string name="admob_interstitial_id" translatable="false">ca-app-pub-3940256099942544/1033173712</string>
+    <!-- AdMob App ID and Ad Unit IDs -->
+    <string name="admob_app_id" translatable="false">ca-app-pub-6167713057973203~7427358633</string>
+    <string name="admob_interstitial_id" translatable="false">ca-app-pub-6167713057973203/1474813517</string>
 
     <!--
         Google Play Games Services App ID.

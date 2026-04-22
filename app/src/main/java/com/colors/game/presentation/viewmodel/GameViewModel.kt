@@ -36,7 +36,7 @@ data class GameUiState(
     val adTrigger: AdTrigger = AdTrigger.NONE
 )
 
-enum class AdTrigger { NONE, LEVEL_COMPLETED, TIME_LIMIT }
+enum class AdTrigger { NONE, LEVEL_COMPLETED, TIME_LIMIT, DAILY_START }
 
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -292,15 +292,16 @@ class GameViewModel @Inject constructor(
             when (trigger) {
                 AdTrigger.LEVEL_COMPLETED ->
                     _uiState.update { it.copy(showResultDialog = true) }
-                AdTrigger.TIME_LIMIT ->
-                    Unit // just resume — the game continues after the ad
-                AdTrigger.NONE -> Unit
+                AdTrigger.TIME_LIMIT  -> Unit // just resume — the game continues after the ad
+                AdTrigger.DAILY_START -> Unit // not used in normal game mode
+                AdTrigger.NONE        -> Unit
             }
         }
 
         return when (trigger) {
             AdTrigger.LEVEL_COMPLETED -> adManager.onLevelCompleted(activity, onFinished)
             AdTrigger.TIME_LIMIT      -> adManager.onTimeLimitReached(activity, onFinished)
+            AdTrigger.DAILY_START     -> adManager.onLevelCompleted(activity, onFinished) // reuse interstitial logic
             AdTrigger.NONE            -> false
         }.also { adShown ->
             // If no ad was available, proceed immediately

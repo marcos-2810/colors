@@ -4,6 +4,7 @@ import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colors.game.data.remote.BillingManager
+import com.colors.game.data.repository.DailyPuzzleRepository
 import com.colors.game.data.repository.GameStateRepository
 import com.colors.game.data.repository.SettingsRepository
 import com.colors.game.domain.LevelGenerator
@@ -21,14 +22,19 @@ data class MainMenuUiState(
     /** 0..1 fraction of board covered in the active game for [nextLevelId]. Null if no game in progress. */
     val activeGameCoverage: Float? = null,
     /** True when the user has purchased the premium upgrade. */
-    val isPremium: Boolean = false
+    val isPremium: Boolean = false,
+    /** True if today's daily puzzle has already been played. */
+    val dailyPlayedToday: Boolean = false,
+    /** Today's date key "yyyy-MM-dd" for navigation. */
+    val todayKey: String = ""
 )
 
 @HiltViewModel
 class MainMenuViewModel @Inject constructor(
     private val gameStateRepo: GameStateRepository,
     private val settingsRepo: SettingsRepository,
-    private val billingManager: BillingManager
+    private val billingManager: BillingManager,
+    private val dailyRepo: DailyPuzzleRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainMenuUiState())
@@ -36,12 +42,20 @@ class MainMenuViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            val todayKey = dailyRepo.todayKey()
             combine(
                 gameStateRepo.progressMapFlow,
                 gameStateRepo.activeGameFlow,
                 settingsRepo.settingsFlow,
-                billingManager.isPremium
-            ) { progressMap, activeGame, settings, isPremiumBilling ->
+                billingManager.isPremium,
+                dailyRepo.hasTodayBeenPlayedFlow()
+            ) { args ->
+                @Suppress("UNCHECKED_CAST")
+                val progressMap       = args[0] as Map<Int, com.colors.game.data.model.LevelProgress>
+                val activeGame        = args[1] as? com.colors.game.data.model.GameState
+                val settings          = args[2] as com.colors.game.data.model.AppSettings
+                val isPremiumBilling  = args[3] as Boolean
+                val dailyPlayedToday  = args[4] as Boolean
 
                 val completed     = progressMap.values.count { it.isCompleted }
                 val hasEverPlayed = progressMap.isNotEmpty() || activeGame != null
@@ -71,8 +85,9 @@ class MainMenuViewModel @Inject constructor(
                     totalCompleted     = completed,
                     tutorialCompleted  = settings.tutorialCompleted,
                     activeGameCoverage = coverage,
-                    // Premium = purchased via Play Billing OR unlocked via promo code
-                    isPremium          = isPremiumBilling || settings.isPremiumUnlocked
+                    isPremium          = isPremiumBilling || settings.isPremiumUnlocked,
+                    dailyPlayedToday   = dailyPlayedToday,
+                    todayKey           = todayKey
                 )
             }.collect { _uiState.value = it }
         }

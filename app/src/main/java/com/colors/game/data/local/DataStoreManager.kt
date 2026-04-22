@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.colors.game.data.model.AppSettings
+import com.colors.game.data.model.DailyPuzzleRecord
 import com.colors.game.data.model.GameState
 import com.colors.game.data.model.LevelProgress
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -29,6 +30,7 @@ class DataStoreManager @Inject constructor(
     private val KEY_SETTINGS      = stringPreferencesKey("settings")
     private val KEY_ACTIVE_GAME   = stringPreferencesKey("active_game")
     private val KEY_PROGRESS_MAP  = stringPreferencesKey("progress_map")
+    private val KEY_DAILY_RECORDS = stringPreferencesKey("daily_records")
 
     // ── Settings ─────────────────────────────────────────────────────────────
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -82,6 +84,39 @@ class DataStoreManager @Inject constructor(
             }
             current[progress.levelId] = merged
             prefs[KEY_PROGRESS_MAP] = json.encodeToString(current.values.toList())
+        }
+    }
+
+    // ── Daily puzzle records ──────────────────────────────────────────────
+    val dailyRecordsFlow: Flow<Map<String, DailyPuzzleRecord>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_DAILY_RECORDS]?.let {
+            runCatching {
+                json.decodeFromString<List<DailyPuzzleRecord>>(it).associateBy { r -> r.dateKey }
+            }.getOrElse { emptyMap() }
+        } ?: emptyMap()
+    }
+
+    suspend fun saveDailyRecord(record: DailyPuzzleRecord) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[KEY_DAILY_RECORDS]?.let {
+                runCatching {
+                    json.decodeFromString<List<DailyPuzzleRecord>>(it).associateBy { r -> r.dateKey }
+                }.getOrElse { emptyMap() }
+            }?.toMutableMap() ?: mutableMapOf()
+
+            val existing = current[record.dateKey]
+            current[record.dateKey] = if (existing != null && existing.isCompleted && record.isCompleted) {
+                existing.copy(
+                    stars     = maxOf(existing.stars, record.stars),
+                    movesUsed = minOf(existing.movesUsed, record.movesUsed),
+                    timeSeconds = minOf(existing.timeSeconds, record.timeSeconds)
+                )
+            } else if (existing != null && existing.isCompleted) {
+                existing // keep the completed record, don't overwrite with failed attempt
+            } else {
+                record
+            }
+            prefs[KEY_DAILY_RECORDS] = json.encodeToString(current.values.toList())
         }
     }
 

@@ -26,6 +26,26 @@ class LevelGenerator(private val solver: GreedySolver = GreedySolver()) {
     companion object {
         const val TOTAL_LEVELS = 500
         private const val MAX_GEN_ATTEMPTS = 30
+        /** Fake level ID used internally for daily puzzles (not stored in normal progress). */
+        const val DAILY_LEVEL_ID = -1
+    }
+
+    /**
+     * Generates a deterministic daily puzzle from a date's epoch day as seed.
+     * Difficulty rotates pseudo-randomly but is fixed for each specific date.
+     */
+    fun generateDaily(epochDay: Long): Level {
+        val rng = Random(epochDay)
+        val difficulty = Difficulty.entries[rng.nextInt(Difficulty.entries.size)]
+        var seed = epochDay
+        var attempt = 0
+        while (attempt < MAX_GEN_ATTEMPTS) {
+            val level = tryGenerate(DAILY_LEVEL_ID, difficulty, seed)
+            if (level != null) return level
+            seed += 9_999_991L  // large prime offset to avoid repeating patterns
+            attempt++
+        }
+        return tryGenerate(DAILY_LEVEL_ID, difficulty, seed, forcedSlack = 20)!!
     }
 
     fun generateLevel(id: Int): Level {

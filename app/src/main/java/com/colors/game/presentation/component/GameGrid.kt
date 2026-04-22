@@ -83,10 +83,10 @@ private fun GridCell(
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseBorderAlpha by infiniteTransition.animateFloat(
-        initialValue  = 0.5f,
-        targetValue   = 1.0f,
+        initialValue  = 0.25f,
+        targetValue   = 0.60f,
         animationSpec = infiniteRepeatable(
-            animation  = tween(600, easing = FastOutSlowInEasing),
+            animation  = tween(1200, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseBorder"
@@ -101,7 +101,7 @@ private fun GridCell(
             .background(animatedColor)
             .then(
                 if (isSelected) Modifier.border(
-                    width = 2.dp,
+                    width = 1.5.dp,
                     color = Color.White.copy(alpha = pulseBorderAlpha),
                     shape = cellShape
                 ) else Modifier
