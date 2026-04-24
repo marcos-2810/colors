@@ -270,7 +270,7 @@ private fun DayCell(
     val isCompleted = entry?.record?.isCompleted == true
 
     val bgColor = when {
-        isToday && isCompleted -> SuccessGreen.copy(alpha = 0.25f)d
+        isToday && isCompleted -> SuccessGreen.copy(alpha = 0.25f)
         isToday                -> Primary.copy(alpha = 0.3f)
         isCompleted            -> SuccessGreen.copy(alpha = 0.12f)
         isAvailable            -> Color.White.copy(alpha = 0.05f)
