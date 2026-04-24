@@ -47,6 +47,7 @@ class DailyGameViewModel @Inject constructor(
     private var timerJob: Job? = null
     private var timeLimitAdShown = false
     private var isFirstDailyOfDay = false
+    private var retryCount = 0
 
     init {
         loadGame()
@@ -84,10 +85,7 @@ class DailyGameViewModel @Inject constructor(
                 it.copy(
                     gameState = gameState.copy(selectedGroup = initialGroup),
                     isLoading = false,
-                    isToday   = isToday,
-                    // Show ad before the first daily puzzle of the day
-                    showAd    = isFirstDailyOfDay,
-                    adTrigger = if (isFirstDailyOfDay) AdTrigger.DAILY_START else AdTrigger.NONE
+                    isToday   = isToday
                 )
             }
         }
@@ -192,6 +190,17 @@ class DailyGameViewModel @Inject constructor(
     }
 
     fun restartLevel() {
+        retryCount++
+        if (retryCount % 5 == 0) {
+            _uiState.update {
+                it.copy(showAd = true, adTrigger = AdTrigger.RETRY, showResultDialog = false)
+            }
+        } else {
+            doRestart()
+        }
+    }
+
+    private fun doRestart() {
         stopTimer()
         timeLimitAdShown = false
         viewModelScope.launch {
@@ -242,16 +251,18 @@ class DailyGameViewModel @Inject constructor(
             when (trigger) {
                 AdTrigger.LEVEL_COMPLETED ->
                     _uiState.update { it.copy(showResultDialog = true) }
-                AdTrigger.DAILY_START -> Unit  // ad shown before the game starts — just let the user play
-                AdTrigger.TIME_LIMIT  -> Unit  // game continues after time-limit ad
+                AdTrigger.RETRY       -> doRestart()
+                AdTrigger.TIME_LIMIT  -> Unit
+                AdTrigger.DAILY_START -> Unit
                 AdTrigger.NONE        -> Unit
             }
         }
 
         return when (trigger) {
-            AdTrigger.DAILY_START,
             AdTrigger.LEVEL_COMPLETED -> adManager.onLevelCompleted(activity, onFinished)
+            AdTrigger.RETRY           -> adManager.showImmediate(activity, onFinished)
             AdTrigger.TIME_LIMIT      -> adManager.onTimeLimitReached(activity, onFinished)
+            AdTrigger.DAILY_START     -> adManager.showImmediate(activity, onFinished)
             AdTrigger.NONE            -> false
         }.also { shown -> if (!shown) onFinished() }
     }

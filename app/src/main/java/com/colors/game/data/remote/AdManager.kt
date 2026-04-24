@@ -71,6 +71,16 @@ class AdManager @Inject constructor(
         return tryShow(activity, onFinished)
     }
 
+    /**
+     * Shows an ad immediately, bypassing the level-completion counter.
+     * Used for special trigger points (daily puzzle start, retry limit).
+     * Returns true if an ad was shown. Caller must invoke [onFinished] when false.
+     */
+    fun showImmediate(activity: Activity, onFinished: () -> Unit): Boolean {
+        if (billingManager.isPremium.value) return false
+        return tryShow(activity, onFinished)
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private fun tryShow(activity: Activity, onFinished: () -> Unit): Boolean {

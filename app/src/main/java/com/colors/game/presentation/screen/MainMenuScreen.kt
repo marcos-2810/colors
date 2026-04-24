@@ -195,7 +195,10 @@ fun MainMenuScreen(
                     if (uiState.dailyPlayedToday) {
                         onDailyCalendar()
                     } else {
-                        onDailyPuzzle(uiState.todayKey)
+                        // Show ad BEFORE entering the game, then navigate
+                        viewModel.requestDailyStartAd(context as Activity) {
+                            onDailyPuzzle(uiState.todayKey)
+                        }
                     }
                 }
             )

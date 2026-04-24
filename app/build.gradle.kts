@@ -15,8 +15,8 @@ android {
         applicationId = "com.colors.game"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "11.0"
+        versionCode = 12
+        versionName = "12.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
         // True only when google-services.json is present in app/ at Gradle sync time.

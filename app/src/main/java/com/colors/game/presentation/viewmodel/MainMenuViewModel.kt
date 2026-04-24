@@ -3,6 +3,7 @@ package com.colors.game.presentation.viewmodel
 import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.colors.game.data.remote.AdManager
 import com.colors.game.data.remote.BillingManager
 import com.colors.game.data.repository.DailyPuzzleRepository
 import com.colors.game.data.repository.GameStateRepository
@@ -34,7 +35,8 @@ class MainMenuViewModel @Inject constructor(
     private val gameStateRepo: GameStateRepository,
     private val settingsRepo: SettingsRepository,
     private val billingManager: BillingManager,
-    private val dailyRepo: DailyPuzzleRepository
+    private val dailyRepo: DailyPuzzleRepository,
+    private val adManager: AdManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainMenuUiState())
@@ -99,6 +101,15 @@ class MainMenuViewModel @Inject constructor(
             val current = settingsRepo.settingsFlow.first()
             settingsRepo.save(current.copy(tutorialCompleted = true))
         }
+    }
+
+    /**
+     * Shows an interstitial ad before entering the daily puzzle for the first time today.
+     * [onReady] is called after the ad is dismissed (or immediately if no ad is available).
+     */
+    fun requestDailyStartAd(activity: Activity, onReady: () -> Unit) {
+        val shown = adManager.showImmediate(activity, onReady)
+        if (!shown) onReady()
     }
 
     /** Abre el flujo de compra de Google Play para el upgrade Premium. */
